@@ -1,7 +1,54 @@
 
 #include "bmi160_drv.h"
 
-static const char TAG[] = "main";
+static const char TAG[] = "bmi160";
+
+spi_device_handle_t spi;
+
+
+void bmi160_max_min(void)
+{
+
+}
+
+void bmi160_FOC(void)
+{
+    uint8_t data[9] = {0,};
+
+ /*
+    FOC_CONF bit 7      : reserved = 0;
+    FOC_CONF bit 6      : foc_gyro_en = 0;
+    FOC_CONF bit 5-4    : foc_acc_x = 3; //0b00: disable, 0b01:1g, 0b10:-1g, 0b11: 0g 로 세팅
+    FOC_CONF bit 3-2    : foc_acc_y = 3; //0b00: disable, 0b01:1g, 0b10:-1g, 0b11: 0g 로 세팅
+    FOC_CONF bit 1-0    : foc_acc_z = 1; //0b00: disable, 0b01:1g, 0b10:-1g, 0b11: 0g 로 세팅
+*/
+    uint8_t addr = 0x71;
+    uint8_t cmd = addr | BMI160_SPI_READ_MASK;
+
+
+    uint8_t foc_conf = 0b00111101;
+    uint8_t offset_6 = 0b01000000;
+
+    spi_set_data(spi, BMI160_OFFSET_6, offset_6);   //
+    spi_set_data(spi, BMI160_FOC_CONF, foc_conf);   //FOC 레지스테 설정(x=0,y=0,z=1)
+    spi_set_data(spi, BMI160_COMMAND_REG_ADDR, BMI160_START_FOC);  //FOC 모드 스타트 명령
+
+    while(1){  // FOC 모드 완료 확인 루틴
+        bmi160_active();
+        spi_cmd(spi, BMI160_STATUS | BMI160_SPI_READ_MASK);
+        spi_read(spi, data, 1);
+        bmi160_deactive();
+        if ((data[0] & 0x08) == 0x08) {
+            break;
+        }
+        vTaskDelay(1/ portTICK_RATE_MS);
+    }
+    
+    spi_set_data(spi, BMI160_COMMAND_REG_ADDR, BMI160_PRGO_NVM);  //
+
+}
+
+
 
 void bmi160_init(spi_device_handle_t spi)
 {

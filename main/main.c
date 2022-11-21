@@ -42,7 +42,7 @@ static const char TAG[] = "main";
 void app_main()
 {
     esp_err_t ret;
-    spi_device_handle_t spi;
+//    spi_device_handle_t spi;
 
     spi_bus_config_t buscfg={
         .miso_io_num = PIN_NUM_MISO,
@@ -106,7 +106,7 @@ void app_main()
     
     spi_set_data(spi,0x7E, 0x11);
     
-    spi_set_data(spi,0x41, 0x05);
+    spi_set_data(spi,0x41, 0x03);
 
     spi_get_data(spi, BMI160_CHIP_ID);
     spi_get_data(spi, BMI160_ERR_REG);
@@ -119,7 +119,7 @@ void app_main()
     spi_get_data(spi, BMI160_GYR_RANGE);
     spi_get_data(spi, BMI160_COMMAND_REG_ADDR);
 
-
+    bmi160_FOC();
 
     vTaskDelay(1000 / portTICK_RATE_MS);
 
@@ -133,7 +133,7 @@ void app_main()
     CHECK_ERROR_CODE(esp_task_wdt_init(20, false), ESP_OK);
 
 
-    //while(1)
+    while(1)
     {
 
         ESP_LOGI(TAG, "Memory Setting"); 
@@ -219,7 +219,7 @@ void app_main()
 
         }
 
-        float tt = (t1[num_Data-1] - t1[0]) * 0.039; 
+        float tt = ((((t1[num_Data-1] - t1[0])) >> 4 )+1) * 10; 
         ESP_LOGI(TAG, "x:%f",  tt);
         vTaskDelay(1000/ portTICK_RATE_MS);
 

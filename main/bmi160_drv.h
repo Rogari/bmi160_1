@@ -26,8 +26,10 @@
 /* SPI Commands *********************************************************************/
 #define BMI160_SPI_WRITE_MASK   0x7F
 #define BMI160_SPI_READ_MASK    0x80
-#define BMI160_SOFT_RESET_CMD   0xB6
 #define BMI160_COMMAND_REG_ADDR 0x7E
+#define BMI160_SOFT_RESET_CMD   0xB6
+#define BMI160_START_FOC        0X03
+#define BMI160_PRGO_NVM         0XA0
 
 #define BMI160_CHIP_ID          0x00
 #define BMI160_ERR_REG          0x02
@@ -39,6 +41,10 @@
 #define BMI160_GYR_CONF         0x42
 #define BMI160_GYR_RANGE        0x43
 
+#define BMI160_FOC_CONF         0x69
+#define BMI160_OFFSET_6         0x77
+
+spi_device_handle_t spi;
 
 void spi_set_data(spi_device_handle_t, uint8_t, uint8_t);
 void spi_get_data(spi_device_handle_t, uint8_t);
@@ -48,6 +54,6 @@ void spi_cmd(spi_device_handle_t , const uint8_t );
 void bmi160_active(void);
 void bmi160_deactive(void);
 void bmi160_init(spi_device_handle_t);
-
+void bmi160_FOC(void);
 #endif
 
