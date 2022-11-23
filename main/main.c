@@ -18,6 +18,8 @@
 
 #include "bmi160_drv.h"
 
+void read_vib_data(void);
+
 static const char TAG[] = "main";
 
 #define PIN_NUM_MISO 19     // GPIO18 I/O/T VSPICLK I/O/T GPIO18 I/O/T HS1_DATA7 I1/O/T
@@ -32,14 +34,7 @@ static const char TAG[] = "main";
             }                                                          \
 })
 
-/*
-    esp-idf\components\driver\include\driver\spi_master.h
-    esp-idf\components\driver\include\driver\spi_common.h
-    esp-idf\components\soc\esp32\include\soc\gpio_struct.h
-    esp-idf\components\driver\include\driver\gpio.h
-*/
-
-void app_main()
+void init_SPI(void)
 {
     esp_err_t ret;
 //    spi_device_handle_t spi;
@@ -82,58 +77,24 @@ void app_main()
     //Attach the SPI bus
     ret=spi_bus_add_device(HSPI_HOST, &devcfg, &spi);
     ESP_ERROR_CHECK(ret);
+}
 
-    //Initialize
-	//at45db_initialize(spi);
-	//at45db_test(spi);
-
-    vTaskDelay(1000 / portTICK_RATE_MS);
-
-    uint8_t cmd;
-    uint8_t addr;
- 
-    //uint8_t buffer[1] = {0};
-    uint8_t data[9] = {0,};
-    uint16_t num_Data=500;
-    //float ACC_data;
-    //uint32_t ST_data;
-    //float ACC_data[num_Data];
-    //uint32_t ST_data[500];
-
-    ESP_LOGI(TAG, "SPI TEST");
-
-    bmi160_init(spi);
-    
-    spi_set_data(spi,0x7E, 0x11);
-    
-    spi_set_data(spi,0x41, 0x03);
-
-    spi_get_data(spi, BMI160_CHIP_ID);
-    spi_get_data(spi, BMI160_ERR_REG);
-    spi_get_data(spi, BMI160_PMU_STATUS);
-    spi_get_data(spi, BMI160_NV_CONF);
-    spi_get_data(spi, BMI160_STATUS);
-    spi_get_data(spi, BMI160_ACC_CONF);
-    spi_get_data(spi, BMI160_ACC_RANGE);
-    spi_get_data(spi, BMI160_GYR_CONF);
-    spi_get_data(spi, BMI160_GYR_RANGE);
-    spi_get_data(spi, BMI160_COMMAND_REG_ADDR);
-
-    bmi160_FOC();
-
-    vTaskDelay(1000 / portTICK_RATE_MS);
-
+void read_vib_data(void)
+{
 
     //12번지 부터 9개의; 데이타를 읽을 예정
-    addr = 0x12;
-    cmd = addr | BMI160_SPI_READ_MASK;
+    uint8_t data[9] = {0,};
+    uint16_t num_Data=500;
+
+    uint8_t addr = 0x12;
+    uint8_t cmd = addr | BMI160_SPI_READ_MASK;
 
     uint16_t i;
 
     CHECK_ERROR_CODE(esp_task_wdt_init(20, false), ESP_OK);
 
 
-    while(1)
+    //while(1)
     {
 
         ESP_LOGI(TAG, "Memory Setting"); 
@@ -167,9 +128,9 @@ void app_main()
             int16_t y_data = data[3]<<8 | data[2];
             int16_t z_data = data[5]<<8 | data[4];
 
-            float xx = x_data/8129.0;
-            float yy = y_data/8129.0;
-            float zz = z_data/8129.0;
+            float xx = x_data/(32768.0 / 2 );  //가속도 측정 범위 = 2 
+            float yy = y_data/(32768.0 / 2 );  //가속도 측정 범위 = 2
+            float zz = z_data/(32768.0 / 2 );  //가속도 측정 범위 = 2
 
             uint32_t sensor_time = data[8]<<16 | data[7]<<8 | data[6];
 
@@ -236,3 +197,54 @@ void app_main()
     CHECK_ERROR_CODE(esp_task_wdt_init(5, false), ESP_OK);
 
 }
+
+void app_main()
+{
+
+    init_SPI();
+
+
+    vTaskDelay(1000 / portTICK_RATE_MS);
+
+
+    bmi160_init();
+    bmi160_FOC();
+
+    vTaskDelay(1000 / portTICK_RATE_MS);
+
+    spi_set_data(spi, BMI160_INT_EN_0, 0b00000111);   //any motion interrupt enable(x,y,z axis)
+    spi_set_data(spi, BMI160_INT_MOTION_1, 0x2F);   //가속도가 0.5g이상이면 인터럽터 발생
+    spi_set_data(spi, BMI160_INT_MOTION_0, 0x0F);   //
+
+    uint8_t data[9] = {0,};
+
+    for(;;){
+        int i = 0;
+        while(1){
+            bmi160_active();
+            spi_cmd(spi, BMI160_INT_STATUS_0 | BMI160_SPI_READ_MASK);
+            spi_read(spi, data, 1);
+            bmi160_deactive();
+/*
+            if(i >=1000) {
+                i=0;
+                esp_task_wdt_reset();
+                ESP_LOGI(TAG, "Reset Watch Dog");
+            } else {
+                i++;
+            }
+*/           
+            if ((data[0] & 0x04) == 0x04) {
+                break;
+            }
+            vTaskDelay(20/ portTICK_RATE_MS);
+        }
+
+        spi_get_data(spi, BMI160_INT_STATUS_2);
+
+        vTaskDelay(1000 / portTICK_RATE_MS);
+        //read_vib_data();
+    }
+
+}
+

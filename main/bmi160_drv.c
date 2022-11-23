@@ -13,7 +13,7 @@ void bmi160_max_min(void)
 
 void bmi160_FOC(void)
 {
-    uint8_t data[9] = {0,};
+    uint8_t data[1] = {0};
 
  /*
     FOC_CONF bit 7      : reserved = 0;
@@ -22,16 +22,13 @@ void bmi160_FOC(void)
     FOC_CONF bit 3-2    : foc_acc_y = 3; //0b00: disable, 0b01:1g, 0b10:-1g, 0b11: 0g 로 세팅
     FOC_CONF bit 1-0    : foc_acc_z = 1; //0b00: disable, 0b01:1g, 0b10:-1g, 0b11: 0g 로 세팅
 */
-    uint8_t addr = 0x71;
-    uint8_t cmd = addr | BMI160_SPI_READ_MASK;
-
 
     uint8_t foc_conf = 0b00111101;
     uint8_t offset_6 = 0b01000000;
 
-    spi_set_data(spi, BMI160_OFFSET_6, offset_6);   //
+    spi_set_data(spi, BMI160_OFFSET_6, offset_6);   // FOC(센서 보정 명령)
     spi_set_data(spi, BMI160_FOC_CONF, foc_conf);   //FOC 레지스테 설정(x=0,y=0,z=1)
-    spi_set_data(spi, BMI160_COMMAND_REG_ADDR, BMI160_START_FOC);  //FOC 모드 스타트 명령
+    spi_set_data(spi, BMI160_COMMAND_REG_ADDR, BMI160_START_FOC_CMD);  //FOC 모드 스타트 명령
 
     while(1){  // FOC 모드 완료 확인 루틴
         bmi160_active();
@@ -44,52 +41,29 @@ void bmi160_FOC(void)
         vTaskDelay(1/ portTICK_RATE_MS);
     }
     
-    spi_set_data(spi, BMI160_COMMAND_REG_ADDR, BMI160_PRGO_NVM);  //
+    spi_set_data(spi, BMI160_COMMAND_REG_ADDR, BMI160_PROG_NVM_CMD);
 
 }
 
 
 
-void bmi160_init(spi_device_handle_t spi)
+void bmi160_init(void)
 {
-    uint8_t cmd;
-    uint8_t addr;
-    uint8_t buffer[1] = {0};
 
-    addr = BMI160_COMMAND_REG_ADDR;
-    cmd = addr & BMI160_SPI_WRITE_MASK;
-    buffer[0] = BMI160_SOFT_RESET_CMD;
+    spi_set_data(spi, BMI160_COMMAND_REG_ADDR, BMI160_SOFT_RESET_CMD);  //BMI160 soft reset
+    vTaskDelay(1 / portTICK_RATE_MS);
 
-    bmi160_active();
-    spi_cmd(spi,cmd);
-    spi_data(spi, buffer, 1);
-    bmi160_deactive();
-
-    vTaskDelay(1000 / portTICK_RATE_MS);
-
-    addr = BMI160_NV_CONF;
-    cmd = addr & BMI160_SPI_WRITE_MASK;
-    buffer[0] = 0x01;
+    spi_get_data(spi, BMI160_SPI_DUMMY_READ);                            //for SPI enable
+    vTaskDelay(1 / portTICK_RATE_MS);
    
-    bmi160_active();
-    spi_cmd(spi,cmd);
-    spi_data(spi, buffer, 1);
-    bmi160_deactive();
+    spi_set_data(spi, BMI160_ACC_RANGE, BMI160_ACCEL_RANGE_2G);         //set ACC range +/- 2g
+    vTaskDelay(1 / portTICK_RATE_MS);
 
-//    vTaskDelay(1000 / portTICK_RATE_MS);
+    spi_set_data(spi, BMI160_NV_CONF, 0x01);                            //for SPI enable
+    vTaskDelay(1 / portTICK_RATE_MS);
 
-    addr = BMI160_COMMAND_REG_ADDR;
-    cmd = addr & BMI160_SPI_WRITE_MASK;
-    buffer[0] = 0x11;
-   
-    bmi160_active();
-    spi_cmd(spi,cmd);
-    spi_data(spi, buffer, 1);
-    bmi160_deactive();
-
-
-    ESP_LOGI(TAG, "SET DATA 0x%02X to 0x%02X", 0X11, BMI160_COMMAND_REG_ADDR);
-
+    spi_set_data(spi,BMI160_COMMAND_REG_ADDR, 0x11);                    // acc_set_pmu_mode: 0b0001 00nn
+    vTaskDelay(1 / portTICK_RATE_MS);
     
 }
 
@@ -104,6 +78,8 @@ void spi_get_data(spi_device_handle_t spi, uint8_t addr)
     spi_cmd(spi,cmd);
     spi_read(spi, buffer, 1);
     bmi160_deactive();
+
+    vTaskDelay(20 / portTICK_RATE_MS);
     
     ESP_LOGI(TAG, "GET DAT from 0x%02X : 0x%02X", addr, buffer[0]);
 
@@ -122,8 +98,10 @@ void spi_set_data(spi_device_handle_t spi, uint8_t addr, uint8_t code)
     spi_cmd(spi,cmd);
     spi_data(spi, buffer, 1);
     bmi160_deactive();
-    
-    ESP_LOGI(TAG, "SET DATA 0x%02X to 0x%02X", code, addr);
+
+    vTaskDelay(20 / portTICK_RATE_MS);
+
+    //ESP_LOGI(TAG, "SET DATA 0x%02X to 0x%02X", code, addr);
 
 }
 
