@@ -203,16 +203,14 @@ void app_main()
 
     init_SPI();
 
-
     vTaskDelay(1000 / portTICK_RATE_MS);
-
 
     bmi160_init();
     bmi160_FOC();
 
     vTaskDelay(1000 / portTICK_RATE_MS);
 
-    spi_set_data(spi, BMI160_INT_EN_0, 0b00000111);   //any motion interrupt enable(x,y,z axis)
+    spi_set_data(spi, BMI160_INT_EN_0, 0b00000111); //any motion interrupt enable(x,y,z axis)
     spi_set_data(spi, BMI160_INT_MOTION_1, 0x2F);   //가속도가 0.5g이상이면 인터럽터 발생
     spi_set_data(spi, BMI160_INT_MOTION_0, 0x0F);   //
 
